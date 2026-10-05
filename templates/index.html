@@ -1,0 +1,337 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mood-Based Music Recommendation</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="disco-lights">
+    <div class="light-beam"></div>
+    <div class="light-beam"></div>
+    <div class="light-beam"></div>
+    <div class="light-beam"></div>
+    <div class="light-beam"></div>
+    <div class="light-beam"></div>
+</div>
+
+<div class="container">
+    <div class="nav-header">
+        <h1> Mood-Based Music Recommendation </h1>
+        <div class="auth-nav">
+            <span>Welcome, {{ current_user.username }}!</span>
+            <a href="{{ url_for('history') }}">History</a>
+            <button id="chatbot-nav-btn" class="chatbot-nav-btn">🤖 Chat</button>
+            <a href="{{ url_for('logout') }}">Logout</a>
+        </div>
+    </div>
+
+    <form method="POST" id="mood-form">
+        <div class="voice-tips">
+            <h4>🎤 Voice Recognition Tips:</h4>
+            <ul>
+                <li>Speak clearly and at a moderate pace</li>
+                <li>Minimize background noise (close windows, turn off music)</li>
+                <li>Position microphone 6-12 inches from your mouth</li>
+                <li>Try multiple attempts if first attempt fails</li>
+                <li>If voice doesn't work, use text input instead</li>
+            </ul>
+        </div>
+        
+        <div class="input-group">
+            <textarea name="text" id="text-input" placeholder="Type how you are feeling... or click the microphone to speak" required>{{ user_text }}</textarea>
+            <div class="voice-controls">
+                <button type="button" id="voice-btn" class="voice-btn" title="Click to speak">
+                    <span id="voice-icon">🎤</span>
+                    <span id="voice-status">Speak</span>
+                </button>
+                <button type="button" id="test-voice-btn" class="test-voice-btn" title="Test microphone setup">
+                    <span>🔧</span>
+                    <span>Test</span>
+                </button>
+            </div>
+        </div>
+        <button type="submit" id="analyze-btn">Analyze Mood</button>
+    </form>
+
+    {% if mood %}
+    <div class="result">
+        <h2>Detected Mood: <span>{{ mood }}</span></h2>
+        <h3>Recommended Genres:</h3>
+        <p>{{ genres }}</p>
+        <h3>Available Songs:</h3>
+        <div class="songs-list">
+            {% for song in songs %}
+            <div class="song-item">
+                <p>{{ song }}</p>
+                {% if music_files and music_files[loop.index0] %}
+                <audio controls>
+                    <source src="{{ music_files[loop.index0] }}" type="audio/mpeg">
+                    Your browser does not support the audio element.
+                </audio>
+                {% else %}
+                <span class="no-audio">Audio file not available</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Chatbot Modal -->
+<div class="chatbot-modal" id="chatbot-modal">
+    <div class="chatbot-modal-content">
+        <div class="chatbot-modal-header">
+            <span>🤖 Mood Assistant</span>
+            <button class="chatbot-close" id="chatbot-close">×</button>
+        </div>
+        <div class="chatbot-messages" id="chatbot-messages">
+            <div class="message bot-message">
+                Hi! I'm your mood assistant. How are you feeling today? I can help with music recommendations and emotional support! 😊
+            </div>
+        </div>
+        <div class="chatbot-input-container">
+            <input type="text" id="chatbot-input" placeholder="Type your message..." maxlength="500">
+            <button id="chatbot-send">Send</button>
+        </div>
+        <div class="chatbot-typing" id="chatbot-typing" style="display: none;">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+    </div>
+</div>
+
+<div class="music-notes">
+    <div class="note"></div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const voiceBtn = document.getElementById('voice-btn');
+    const testVoiceBtn = document.getElementById('test-voice-btn');
+    const voiceIcon = document.getElementById('voice-icon');
+    const voiceStatus = document.getElementById('voice-status');
+    const textInput = document.getElementById('text-input');
+    const moodForm = document.getElementById('mood-form');
+    const analyzeBtn = document.getElementById('analyze-btn');
+    
+    let isListening = false;
+    
+    // Test voice recognition setup
+    testVoiceBtn.addEventListener('click', async function() {
+        testVoiceBtn.disabled = true;
+        testVoiceBtn.innerHTML = '<span>⏳</span><span>Testing...</span>';
+        
+        try {
+            const response = await fetch('/test-voice');
+            const result = await response.json();
+            
+            if (result.success) {
+                alert(`Voice Recognition Setup:\n\nMicrophones found: ${result.microphones.length}\nAvailable mics: ${result.microphones.join(', ')}\nSpeechRecognition version: ${result.speech_recognition_version}\n\nIf no microphones are listed, please check your microphone settings and permissions.`);
+            } else {
+                alert(`Voice Recognition Error: ${result.error}\n\nPlease install PyAudio properly. On Windows, try:\n1. pip install pipwin\n2. pipwin install pyaudio`);
+            }
+        } catch (error) {
+            alert(`Connection Error: ${error.message}\n\nMake sure Flask server is running.`);
+        } finally {
+            testVoiceBtn.disabled = false;
+            testVoiceBtn.innerHTML = '<span>🔧</span><span>Test</span>';
+        }
+    });
+    
+    // Voice input functionality
+    voiceBtn.addEventListener('click', async function() {
+        if (isListening) return;
+        
+        isListening = true;
+        voiceBtn.classList.add('listening');
+        voiceIcon.textContent = '🔴';
+        voiceStatus.textContent = 'Listening...';
+        voiceBtn.disabled = true;
+        
+        try {
+            const response = await fetch('/voice-input', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                console.log('✅ Voice recognition successful:', result);
+                console.log('Recognized text:', result.text);
+                console.log('Detected mood:', result.mood);
+                
+                textInput.value = result.text;
+                console.log('✅ Text input updated with:', textInput.value);
+                
+                voiceIcon.textContent = '✅';
+                voiceStatus.textContent = 'Success!';
+                
+                // Automatically trigger mood analysis
+                displayResults(result);
+            } else {
+                console.log('❌ Voice recognition failed:', result);
+                voiceIcon.textContent = '❌';
+                voiceStatus.textContent = 'Error';
+                
+                // Show detailed error message with tips
+                let errorMsg = result.error;
+                if (result.error.includes('not clear') || result.error.includes('multiple attempts')) {
+                    errorMsg = result.error + '\n\n💡 Tips: Speak louder, reduce background noise, or try typing instead.';
+                } else if (result.error.includes('PyAudio')) {
+                    errorMsg = 'PyAudio is not installed. Please check requirements.txt for installation instructions.';
+                } else if (result.error.includes('microphone')) {
+                    errorMsg = 'No microphone found. Please check your microphone settings and permissions.';
+                } else if (result.error.includes('timeout')) {
+                    errorMsg = 'Recording timeout. Please try speaking more clearly or check microphone.';
+                } else {
+                    errorMsg = result.error;
+                }
+                
+                alert(`Voice Recognition Error: ${errorMsg}`);
+            }
+        } catch (error) {
+            console.error('Voice input error:', error);
+            voiceIcon.textContent = '❌';
+            voiceStatus.textContent = 'Error';
+            alert(`Connection Error: ${error.message}\n\nMake sure Flask server is running and you are logged in.`);
+        } finally {
+            setTimeout(() => {
+                isListening = false;
+                voiceBtn.classList.remove('listening');
+                voiceIcon.textContent = '🎤';
+                voiceStatus.textContent = 'Speak';
+                voiceBtn.disabled = false;
+            }, 2000);
+        }
+    });
+    
+    function displayResults(data) {
+        // Remove existing results
+        const existingResult = document.querySelector('.result');
+        if (existingResult) {
+            existingResult.remove();
+        }
+        
+        // Create new results section
+        const resultDiv = document.createElement('div');
+        resultDiv.className = 'result';
+        resultDiv.innerHTML = `
+            <h2>Detected Mood: <span>${data.mood}</span></h2>
+            <h3>Recommended Genres:</h3>
+            <p>${data.genres}</p>
+            <h3>Available Songs:</h3>
+            <div class="songs-list">
+                ${data.songs.map((song, index) => `
+                    <div class="song-item">
+                        <p>${song}</p>
+                        ${data.music_files && data.music_files[index] ? 
+                            `<audio controls>
+                                <source src="${data.music_files[index]}" type="audio/mpeg">
+                                Your browser does not support the audio element.
+                            </audio>` : 
+                            '<span class="no-audio">Audio file not available</span>'
+                        }
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        
+        moodForm.parentNode.insertBefore(resultDiv, moodForm.nextSibling);
+    }
+
+    // Chatbot functionality
+    const chatbotNavBtn = document.getElementById('chatbot-nav-btn');
+    const chatbotModal = document.getElementById('chatbot-modal');
+    const chatbotClose = document.getElementById('chatbot-close');
+    const chatbotMessages = document.getElementById('chatbot-messages');
+    const chatbotInput = document.getElementById('chatbot-input');
+    const chatbotSend = document.getElementById('chatbot-send');
+    const chatbotTyping = document.getElementById('chatbot-typing');
+
+    // Open chatbot modal
+    chatbotNavBtn.addEventListener('click', function() {
+        chatbotModal.style.display = 'flex';
+        chatbotInput.focus();
+    });
+
+    // Close chatbot modal
+    chatbotClose.addEventListener('click', function() {
+        chatbotModal.style.display = 'none';
+    });
+
+    // Close modal when clicking outside
+    window.addEventListener('click', function(event) {
+        if (event.target === chatbotModal) {
+            chatbotModal.style.display = 'none';
+        }
+    });
+
+    // Send message function
+    async function sendMessage() {
+        const message = chatbotInput.value.trim();
+        if (!message) return;
+
+        // Add user message to chat
+        addMessage(message, 'user');
+        chatbotInput.value = '';
+
+        // Show typing indicator
+        chatbotTyping.style.display = 'flex';
+        chatbotSend.disabled = true;
+
+        try {
+            const response = await fetch('/chatbot', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ message: message })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                addMessage(result.response, 'bot');
+            } else {
+                addMessage(`Sorry, I encountered an error: ${result.error}`, 'bot');
+            }
+        } catch (error) {
+            console.error('Chatbot error:', error);
+            addMessage('Sorry, I\'m having trouble connecting. Please try again later.', 'bot');
+        } finally {
+            chatbotTyping.style.display = 'none';
+            chatbotSend.disabled = false;
+        }
+    }
+
+    // Add message to chat
+    function addMessage(text, sender) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${sender}-message`;
+        messageDiv.textContent = text;
+        chatbotMessages.appendChild(messageDiv);
+        
+        // Scroll to bottom
+        chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
+    }
+
+    // Event listeners for sending messages
+    chatbotSend.addEventListener('click', sendMessage);
+    chatbotInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+});
+</script>
+
+</body>
+</html>

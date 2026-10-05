@@ -1,0 +1,7 @@
+Flask>=3.0.0,<4.0.0
+Werkzeug>=3.0.0,<4.0.0
+Flask-SQLAlchemy>=3.0.0,<4.0.0
+Flask-Login>=0.6.0,<1.0.0
+SpeechRecognition>=3.10.0,<4.0.0
+google-generativeai>=0.3.0
+# pyaudio>=0.2.11  # Optional for voice recognition - install locally if needed

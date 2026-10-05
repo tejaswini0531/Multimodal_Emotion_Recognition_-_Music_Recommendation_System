@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: mood-music-app
+    env: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /
