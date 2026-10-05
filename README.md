@@ -78,3 +78,65 @@ Mood-Based Music Recommendation
   |
   v
 Recommended Songs
+
+
+🔄 How the System Works
+1. The user registers or logs into the application.
+2. The user provides input through text or voice.
+3. Voice input is converted into text.
+4. The input is processed using NLP techniques.
+5. The deep learning model analyzes the processed input.
+6. The system predicts the user's emotional state.
+7. The detected emotion is mapped to a suitable music category.
+8. Songs related to the detected mood are recommended.
+9. The user's mood information can be maintained in the history.
+
+Project Structure
+Multimodal_Emotion_Recognition_-_Music_Recommendation_System/
+│
+├── app.py
+├── requirements.txt
+├── Dockerfile
+├── render.yaml
+├── .gitignore
+├── README.md
+│
+├── static/
+│
+└── templates/
+    ├── history.html
+    ├── index.html
+    ├── login.html
+    └── signup.html
+
+⚙️ Installation & Setup
+1. Clone the Repository
+git clone https://github.com/tejaswini0531/Multimodal_Emotion_Recognition_-_Music_Recommendation_System.git
+
+2. Open the Project Folder
+cd Multimodal_Emotion_Recognition_-_Music_Recommendation_System
+
+3. Create a Virtual Environment
+python -m venv .venv
+
+4. Activate the Virtual Environment
+For Windows:
+.venv\Scripts\activate
+
+5. Install Dependencies
+pip install -r requirements.txt
+
+6. Run the Application
+python app.py
+
+Then open the local URL displayed by Flask in your browser.
+
+🔮 Future Enhancements
+- Facial emotion recognition
+- Support for more languages
+- Improved speech recognition
+- More emotion categories
+- Larger music library
+- Advanced personalized recommendation algorithms
+- Cloud deployment
+- Mobile application support
