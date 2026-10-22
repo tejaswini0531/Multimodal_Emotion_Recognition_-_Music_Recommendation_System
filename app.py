@@ -10,7 +10,7 @@ import os
 import google.generativeai as genai
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key-change-this-in-production'
+app.config['SECRET_KEY'] = '..................'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///mood_music.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
